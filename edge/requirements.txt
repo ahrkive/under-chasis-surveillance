@@ -1,0 +1,17 @@
+# Edge (Raspberry Pi) Dependencies
+# ==================================
+# Core
+opencv-python-headless>=4.8.0    # Image processing (headless = no GUI deps)
+numpy>=1.24.0                    # Array operations
+
+# Networking
+aiohttp>=3.9.0                   # Async HTTP + WebSocket client
+websockets>=12.0                 # WebSocket protocol support
+
+# Picamera2 (only installable on Raspberry Pi OS)
+# Uncomment these on the Pi; they will fail on non-Pi machines:
+# picamera2>=0.3.17
+# libcamera (system package, installed via apt)
+
+# Utilities
+python-dotenv>=1.0.0             # .env file loading
