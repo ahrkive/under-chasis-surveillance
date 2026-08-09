@@ -37,6 +37,7 @@ class InspectionService:
         model_prediction: Optional[str] = None,
         model_confidence: Optional[float] = None,
         model_version: Optional[int] = None,
+        license_plate: Optional[str] = None,
     ) -> Inspection:
         """
         Create a new pending inspection from an incoming image.
@@ -60,6 +61,9 @@ class InspectionService:
         async with aiofiles.open(local_path, "wb") as f:
             await f.write(image_data)
 
+        # Clean plate string if provided
+        clean_plate = license_plate.strip().upper() if license_plate else None
+
         # Create DB record
         inspection = Inspection(
             bot_id=bot_id,
@@ -68,13 +72,15 @@ class InspectionService:
             model_prediction=model_prediction,
             model_confidence=model_confidence,
             model_version=model_version,
+            license_plate=clean_plate,
+            vehicle_id=clean_plate,
             captured_at=datetime.utcfromtimestamp(timestamp),
         )
         db.add(inspection)
         await db.commit()
         await db.refresh(inspection)
 
-        logger.info("Created inspection %s from bot %s", inspection.id, bot_id)
+        logger.info("Created inspection %s from bot %s (Plate: %s)", inspection.id, bot_id, clean_plate)
         return inspection
 
     @staticmethod
@@ -101,13 +107,18 @@ class InspectionService:
                 f"Inspection {inspection_id} already decided: {inspection.decision}"
             )
 
-        # Update decision
+        # Update decision & annotations
         inspection.decision = decision.decision
         inspection.guard_id = guard.id
         inspection.decided_at = datetime.utcnow()
         if decision.vehicle_id:
             inspection.vehicle_id = decision.vehicle_id
+        if decision.license_plate:
+            inspection.license_plate = decision.license_plate.strip().upper()
+        if decision.threat_level:
+            inspection.threat_level = decision.threat_level
         if decision.notes:
+            inspection.notes = decision.notes
             inspection.metadata_json = {
                 **(inspection.metadata_json or {}),
                 "notes": decision.notes,

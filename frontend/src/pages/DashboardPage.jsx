@@ -238,7 +238,7 @@ export default function DashboardPage() {
               color: 'white',
               boxShadow: '0 0 25px rgba(239, 68, 68, 0.6)',
               display: 'flex',
-              justify: 'space-between',
+              justifyContent: 'space-between',
               alignItems: 'center',
             }}
           >

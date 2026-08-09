@@ -133,11 +133,6 @@ def create_app() -> FastAPI:
     app.include_router(ws_router)
     app.include_router(admin_router)
 
-    # Mount frontend static build if present (for single-container production deployment)
-    frontend_dist = os.path.join(os.path.dirname(__file__), "../../frontend/dist")
-    if os.path.exists(frontend_dist):
-        app.mount("/app", StaticFiles(directory=frontend_dist, html=True), name="frontend")
-
     # Health check
     @app.get("/health", tags=["Health"])
     async def health_check():
@@ -160,6 +155,12 @@ def create_app() -> FastAPI:
             "status": "completed" if result else "skipped",
             "new_model_version": result,
         }
+
+    # Mount frontend static build if present (for single-container production deployment)
+    frontend_dist = os.path.join(os.path.dirname(__file__), "../../frontend/dist")
+    if os.path.exists(frontend_dist):
+        app.mount("/app", StaticFiles(directory=frontend_dist, html=True), name="frontend-app")
+        app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend-root")
 
     return app
 

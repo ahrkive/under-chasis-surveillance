@@ -139,6 +139,7 @@ async def edge_websocket(websocket: WebSocket, bot_id: str):
                     model_prediction=model_prediction,
                     model_confidence=model_confidence,
                     model_version=model_version,
+                    license_plate=header.license_plate,
                 )
 
                 # Step 5: Push to guard UIs
@@ -150,6 +151,7 @@ async def edge_websocket(websocket: WebSocket, bot_id: str):
                     model_prediction=model_prediction,
                     model_confidence=model_confidence,
                     model_version=model_version,
+                    license_plate=inspection.license_plate,
                 )
                 await broadcast_to_guards(guard_msg.model_dump())
 

@@ -115,6 +115,7 @@ class ImageHeader(BaseModel):
     sha256: str
     size: int
     filename: str
+    license_plate: Optional[str] = None
 
 
 class GuardPushMessage(BaseModel):
@@ -125,6 +126,7 @@ class GuardPushMessage(BaseModel):
     model_prediction: Optional[str] = None
     model_confidence: Optional[float] = None
     model_version: Optional[int] = None
+    license_plate: Optional[str] = None
     decision: Optional[str] = None
     message: Optional[str] = None
 

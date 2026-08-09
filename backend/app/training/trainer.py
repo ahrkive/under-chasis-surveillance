@@ -265,17 +265,18 @@ class TrainingPipeline:
         """Synchronous training logic (runs in thread executor)."""
         device = torch.device(self.settings.inference_device)
 
-        # Build dataset
-        full_dataset = ApprovedImageDataset(image_paths, transform=self.train_transform)
+        # 80/20 train/val split
+        indices = torch.randperm(len(image_paths)).tolist()
+        val_size = max(1, int(len(image_paths) * 0.2))
+        train_indices = indices[val_size:]
+        val_indices = indices[:val_size]
 
-        # 80/20 split
-        val_size = max(1, int(len(full_dataset) * 0.2))
-        train_size = len(full_dataset) - val_size
-        train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
-
-        # Override transform for validation split
-        val_dataset.dataset = ApprovedImageDataset(
-            [image_paths[i] for i in val_dataset.indices],
+        train_dataset = ApprovedImageDataset(
+            [image_paths[i] for i in train_indices],
+            transform=self.train_transform,
+        )
+        val_dataset = ApprovedImageDataset(
+            [image_paths[i] for i in val_indices],
             transform=self.val_transform,
         )
 
