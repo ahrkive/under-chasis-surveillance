@@ -13,5 +13,7 @@ venv/
 .venv/
 node_modules/
 *.pth
+!backend/models/v001_mobilenetv3.pth
+!best_model_v2.pth
 .DS_Store
 Thumbs.db

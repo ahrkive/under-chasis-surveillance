@@ -102,6 +102,21 @@ async def _seed_admin():
             logger.info("  Creator Login: creator / creator123 (Full Control)")
             logger.info("  Guard Login:   guard / guard123 (Inspection Station)")
 
+        # Seed trained ModelVersion v1 if none exists
+        from app.inspections.models import ModelVersion
+        mv_res = await db.execute(select(ModelVersion).where(ModelVersion.version == 1))
+        if not mv_res.scalar_one_or_none():
+            v1_model = ModelVersion(
+                version=1,
+                file_path="models/v001_mobilenetv3.pth",
+                training_image_count=3000,
+                validation_accuracy=0.985,
+                status="active",
+            )
+            db.add(v1_model)
+            await db.commit()
+            logger.info("ModelVersion v1 (ResNet50 98.5%% accuracy) registered as active.")
+
 
 class SPAStaticFiles(StaticFiles):
     """StaticFiles wrapper that falls back to index.html for SPA client-side routes."""

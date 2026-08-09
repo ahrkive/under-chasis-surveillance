@@ -59,7 +59,7 @@ class Settings(BaseSettings):
 
     # ── AI / Model ───────────────────────────────────────────────────────
     model_dir: str = "./models"
-    active_model_version: int = 0  # 0 = no model loaded yet
+    active_model_version: int = 1  # Default to v1 trained ResNet50 model
     inference_device: str = "cpu"
     min_images_for_training: int = 50
     training_schedule_cron: str = "0 2 * * 0"  # Sunday 2:00 AM

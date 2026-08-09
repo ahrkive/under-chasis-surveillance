@@ -19,6 +19,8 @@ RUN pip install --no-cache-dir -r backend/requirements.txt --extra-index-url htt
 
 COPY backend/ ./backend/
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+COPY best_model_v2.pth ./backend/models/v001_mobilenetv3.pth
+COPY best_model_v2.pth ./best_model_v2.pth
 
 RUN mkdir -p backend/data/images/pending backend/data/images/approved backend/models
 

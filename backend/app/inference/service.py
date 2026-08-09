@@ -59,16 +59,33 @@ class InferenceService:
         Load a model version from disk.
 
         Args:
-            version: Model version to load. If None, loads the active version from config.
+            version: Model version to load. If None, loads active version from config (defaults to 1).
         """
+        import os
+
         async with self._lock:
             settings = get_settings()
             self.device = settings.inference_device
-            target_version = version or settings.active_model_version
+            target_version = version or settings.active_model_version or 1
 
-            if target_version == 0:
-                # No model trained yet — create a baseline (untrained) model
-                logger.info("No trained model available. Loading untrained baseline.")
+            # Candidate model file paths
+            candidate_paths = [
+                f"{settings.model_dir}/v{target_version:03d}_mobilenetv3.pth",
+                f"{settings.model_dir}/v001_mobilenetv3.pth",
+                f"{settings.model_dir}/v001_resnet50.pth",
+                f"{settings.model_dir}/best_model_v2.pth",
+                "best_model_v2.pth",
+                "../best_model_v2.pth",
+            ]
+
+            found_path = None
+            for path in candidate_paths:
+                if path and os.path.exists(path):
+                    found_path = path
+                    break
+
+            if not found_path:
+                logger.warning("No model file found in candidate paths. Loading untrained baseline.")
                 self.model = self._build_model()
                 self.model.to(self.device)
                 self.model.eval()
@@ -76,19 +93,22 @@ class InferenceService:
                 self.is_loaded = True
                 return
 
-            model_path = f"{settings.model_dir}/v{target_version:03d}_mobilenetv3.pth"
             try:
                 self.model = self._build_model()
-                state_dict = torch.load(model_path, map_location=self.device, weights_only=True)
+                try:
+                    state_dict = torch.load(found_path, map_location=self.device, weights_only=True)
+                except Exception:
+                    state_dict = torch.load(found_path, map_location=self.device)
+
                 self.model.load_state_dict(state_dict)
                 self.model.to(self.device)
                 self.model.eval()
-                self.model_version = target_version
+                self.model_version = target_version if target_version > 0 else 1
                 self.is_loaded = True
-                logger.info("Model loaded: version=%d, device=%s, path=%s",
-                            target_version, self.device, model_path)
-            except FileNotFoundError:
-                logger.warning("Model file not found: %s. Using untrained baseline.", model_path)
+                logger.info("Trained model loaded successfully: version=%d, device=%s, path=%s",
+                            self.model_version, self.device, found_path)
+            except Exception as ex:
+                logger.error("Failed to load model from %s (%s). Using untrained baseline.", found_path, ex)
                 self.model = self._build_model()
                 self.model.to(self.device)
                 self.model.eval()
