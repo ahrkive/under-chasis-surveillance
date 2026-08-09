@@ -17,10 +17,11 @@ from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_admin
+from app.auth.service import hash_password
 from app.config import get_settings
 from app.database import get_db
 from app.inspections.models import Guard, Inspection, ModelVersion, TrainingLog
-from app.inspections.schemas import GuardResponse, ModelVersionResponse
+from app.inspections.schemas import GuardCreate, GuardResponse, ModelVersionResponse
 from app.inference.service import get_inference_service
 from app.inspections.ws import get_connected_guard_count, get_active_guards_list
 
@@ -189,6 +190,63 @@ async def list_users(
     result = await db.execute(select(Guard).order_by(Guard.created_at.desc()))
     users = result.scalars().all()
     return [GuardResponse.model_validate(u) for u in users]
+
+
+@router.post("/users", response_model=GuardResponse, status_code=201)
+async def create_user(
+    request: GuardCreate,
+    db: AsyncSession = Depends(get_db),
+    admin: Guard = Depends(require_admin),
+):
+    """Creators can provision new Guard or Admin accounts."""
+    result = await db.execute(
+        select(Guard).where(Guard.username == request.username)
+    )
+    if result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Username '{request.username}' is already taken.",
+        )
+
+    guard = Guard(
+        username=request.username,
+        password_hash=hash_password(request.password),
+        full_name=request.full_name,
+        role=request.role,
+    )
+    db.add(guard)
+    await db.commit()
+    await db.refresh(guard)
+
+    logger.info("Admin %s created user %s (%s)", admin.username, guard.username, guard.role)
+    return GuardResponse.model_validate(guard)
+
+
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin: Guard = Depends(require_admin),
+):
+    """Creators can delete guard accounts (cannot delete active self)."""
+    if user_id == admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete your own active admin account.",
+        )
+
+    result = await db.execute(select(Guard).where(Guard.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User account not found.",
+        )
+
+    await db.delete(user)
+    await db.commit()
+    logger.info("Admin %s deleted user %s (%s)", admin.username, user.username, user_id)
+    return {"status": "success", "message": f"Account '{user.username}' deleted successfully."}
 
 
 @router.post("/test-model")

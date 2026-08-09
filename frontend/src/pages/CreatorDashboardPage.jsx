@@ -277,7 +277,7 @@ export default function CreatorDashboardPage() {
     e.preventDefault()
     setUserCreateMsg(null)
     try {
-      const res = await fetch('/auth/register', {
+      const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -298,10 +298,36 @@ export default function CreatorDashboardPage() {
         await fetchUsers()
       } else {
         const err = await res.json()
-        setUserCreateMsg({ type: 'error', text: err.detail || 'Failed to create user' })
+        let msg = 'Failed to create user'
+        if (typeof err.detail === 'string') {
+          msg = err.detail
+        } else if (Array.isArray(err.detail)) {
+          msg = err.detail.map((e) => `${e.loc?.[e.loc.length - 1] || 'field'}: ${e.msg}`).join('; ')
+        }
+        setUserCreateMsg({ type: 'error', text: msg })
       }
     } catch (e) {
       setUserCreateMsg({ type: 'error', text: e.message })
+    }
+  }
+
+  // Handle Guard Account Deletion
+  const handleDeleteGuard = async (userId, username) => {
+    if (!window.confirm(`Are you sure you want to delete account '${username}'?`)) return
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        setUserCreateMsg({ type: 'success', text: `Account '${username}' deleted successfully.` })
+        await fetchUsers()
+      } else {
+        const err = await res.json()
+        alert(`Delete failed: ${err.detail || 'Error deleting account'}`)
+      }
+    } catch (e) {
+      alert(`Error: ${e.message}`)
     }
   }
 
@@ -1395,6 +1421,7 @@ export default function CreatorDashboardPage() {
                     <th>User</th>
                     <th>Role</th>
                     <th>Created</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1418,6 +1445,25 @@ export default function CreatorDashboardPage() {
                       </td>
                       <td style={{ fontSize: '0.75rem' }}>
                         {u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}
+                      </td>
+                      <td>
+                        {u.id !== user?.id && (
+                          <button
+                            onClick={() => handleDeleteGuard(u.id, u.username)}
+                            style={{
+                              padding: '0.25rem 0.6rem',
+                              background: 'rgba(239, 68, 68, 0.15)',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                              borderRadius: 6,
+                              color: '#f87171',
+                              fontSize: '0.75rem',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                            }}
+                          >
+                            🗑️ Delete
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
