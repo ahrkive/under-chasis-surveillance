@@ -103,6 +103,19 @@ async def _seed_admin():
             logger.info("  Guard Login:   guard / guard123 (Inspection Station)")
 
 
+class SPAStaticFiles(StaticFiles):
+    """StaticFiles wrapper that falls back to index.html for SPA client-side routes."""
+
+    async def get_response(self, path: str, scope):
+        try:
+            response = await super().get_response(path, scope)
+            if response.status_code == 404:
+                return await super().get_response("index.html", scope)
+            return response
+        except Exception:
+            return await super().get_response("index.html", scope)
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
@@ -114,10 +127,14 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS
+    # CORS configuration allowing cross-origin requests from any remote device/domain
+    origins = settings.cors_origins_list
+    allow_origin_regex = r"https?://.*" if "*" in origins or settings.app_env == "production" else None
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins_list,
+        allow_origins=[] if allow_origin_regex else origins,
+        allow_origin_regex=allow_origin_regex,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -157,10 +174,10 @@ def create_app() -> FastAPI:
         }
 
     # Mount frontend static build if present (for single-container production deployment)
-    frontend_dist = os.path.join(os.path.dirname(__file__), "../../frontend/dist")
+    frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../frontend/dist"))
     if os.path.exists(frontend_dist):
-        app.mount("/app", StaticFiles(directory=frontend_dist, html=True), name="frontend-app")
-        app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend-root")
+        app.mount("/app", SPAStaticFiles(directory=frontend_dist, html=True), name="frontend-app")
+        app.mount("/", SPAStaticFiles(directory=frontend_dist, html=True), name="frontend-root")
 
     return app
 

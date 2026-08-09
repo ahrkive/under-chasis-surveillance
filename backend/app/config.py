@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     training_schedule_cron: str = "0 2 * * 0"  # Sunday 2:00 AM
 
     # ── CORS ─────────────────────────────────────────────────────────────
-    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+    cors_origins: str = "http://localhost:5173,http://localhost:3000,*"
 
     @property
     def cors_origins_list(self) -> list[str]:

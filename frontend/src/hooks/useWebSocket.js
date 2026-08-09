@@ -15,7 +15,7 @@ export function useWebSocket(token) {
     if (!token) return
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const host = window.location.host
+    const host = import.meta.env.VITE_WS_HOST || window.location.host
     const url = `${protocol}//${host}/ws/guard?token=${token}`
 
     try {
