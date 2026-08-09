@@ -27,12 +27,60 @@ export default function DashboardPage() {
   const [isDecided, setIsDecided] = useState(false)
 
   // Phase 2 states
-  const [licensePlate, setLicensePlate] = useState('KA-01-MJ-4892')
+  const [licensePlate, setLicensePlate] = useState('')
   const [searchPlateInput, setSearchPlateInput] = useState('')
   const [baselineScan, setBaselineScan] = useState(null)
   const [splitViewMode, setSplitViewMode] = useState(false)
   const [threatLevel, setThreatLevel] = useState('normal')
   const [guardNotes, setGuardNotes] = useState('')
+
+  // Load latest actual inspection from DB on mount
+  useEffect(() => {
+    const fetchLatestInspection = async () => {
+      try {
+        const res = await fetch('/api/inspections?page=1&page_size=1', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.inspections && data.inspections.length > 0) {
+            const latest = data.inspections[0]
+            setCurrentInspectionId(latest.id)
+            setModelPrediction(latest.model_prediction)
+            setModelConfidence(latest.model_confidence)
+            setModelVersion(latest.model_version || 1)
+            setLicensePlate(latest.license_plate || '')
+            setSearchPlateInput(latest.license_plate || '')
+            setIsDecided(latest.decision !== 'pending')
+            if (latest.decision !== 'pending') {
+              setStatusBanner({
+                status: latest.decision,
+                message: `Inspection ${latest.decision.toUpperCase()} (${latest.license_plate || 'Untagged'})`,
+              })
+            }
+            // Fetch actual image file
+            const imgRes = await fetch(`/api/admin/dataset-images/${latest.id}/file`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+            if (imgRes.ok) {
+              const blob = await imgRes.blob()
+              const reader = new FileReader()
+              reader.onloadend = () => {
+                const base64data = reader.result.split(',')[1]
+                setCurrentImage(base64data)
+              }
+              reader.readAsDataURL(blob)
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch latest inspection:', e)
+      }
+    }
+    if (token) {
+      fetchLatestInspection()
+    }
+  }, [token])
 
   // Handle incoming WebSocket messages
   useEffect(() => {
@@ -50,7 +98,7 @@ export default function DashboardPage() {
       setInspectionCount((c) => c + 1)
 
       // ALPR extraction
-      const detectedPlate = lastMessage.license_plate || 'KA-01-MJ-4892'
+      const detectedPlate = lastMessage.license_plate || ''
       setLicensePlate(detectedPlate)
       setSearchPlateInput(detectedPlate)
 
@@ -64,7 +112,9 @@ export default function DashboardPage() {
       }
 
       // Fetch baseline history for this plate
-      fetchVehicleHistory(detectedPlate)
+      if (detectedPlate) {
+        fetchVehicleHistory(detectedPlate)
+      }
     } else if (lastMessage.type === 'decision_ack') {
       setStatusBanner({
         status: lastMessage.decision,
